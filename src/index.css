@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-lexend: "Lexend Deca", "Lexend Deca Fallback", ui-sans-serif, system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-dark-950 text-white min-h-screen;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
+    font-family: var(--font-lexend);
+  }
+}
+
+@layer components {
+  .sidebar {
+    @apply bg-dark-900/50 backdrop-blur-sm border-r border-dark-700/50;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center px-4 py-3 text-dark-300 hover:text-white hover:bg-dark-800/50 transition-all rounded-lg mx-2 my-1;
+  }
+  
+  .sidebar-item.active {
+    @apply text-white bg-primary-600/20 border-l-2 border-primary-500;
+  }
+  
+  .card-dark {
+    @apply bg-dark-800/50 backdrop-blur-sm border border-dark-700/50 rounded-xl;
+  }
+  
+  .btn-primary-dark {
+    @apply bg-gradient-to-r from-primary-600 to-accent-600 text-white hover:from-primary-700 hover:to-accent-700 transition-all shadow-lg hover:shadow-primary-500/25;
+  }
+  
+  .btn-secondary-dark {
+    @apply bg-dark-700/50 text-dark-200 hover:bg-dark-600/50 hover:text-white border border-dark-600/50 hover:border-dark-500/50 transition-all;
+  }
+  
+  .input-dark {
+    @apply bg-dark-800/50 border border-dark-600/50 text-white placeholder-dark-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent;
+  }
+}
