@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTransactionStore } from '../../store/transactionStore'
 import { useAuthStore } from '../../store/authStore'
 import { TransactionForm } from './TransactionForm'
-import { TransactionTable } from './TransactionTable'
+import TransactionsTable from './TransactionsTable';
 
 export function TransactionManager() {
   const [showForm, setShowForm] = useState(false)
