@@ -8,7 +8,7 @@ import { AdminLogin } from './components/admin/AdminLogin';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { useAuthStore } from './store/authStore';
 import { useAdminAuthStore } from './store/adminAuthStore';
-import SignupPage from './pages/SignupPage';
+import SignupPage from './components/pages/SignupPage';
 
 function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
