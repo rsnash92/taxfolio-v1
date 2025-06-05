@@ -3,8 +3,27 @@ import { X, Plus, Calendar, DollarSign, Hash, FileText, TrendingUp, ArrowRightLe
 import { CoinIcon } from '../common/CoinIcon';
 import { Transaction } from '../../hooks/useTransactions';
 
+const getCategoryFromType = (type: Transaction['type']): Transaction['category'] => {
+  switch (type) {
+    case 'buy':
+    case 'transfer_in':
+    case 'mining':
+    case 'staking':
+      return 'Incoming';
+    case 'sell':
+    case 'transfer_out':
+      return 'Outgoing';
+    case 'trade':
+      return 'Trade';
+    case 'fee':
+      return 'Fee';
+    default:
+      return 'Trade';
+  }
+};
+
 interface AddTransactionModalProps {
-  onAdd: (transaction: Omit<Transaction, 'id' | 'category'>) => void;
+  onAdd: (transaction: Omit<Transaction, 'id'>) => void;
   onClose: () => void;
 }
 
@@ -134,9 +153,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onAdd,
     
     if (!validateForm()) return;
 
-    const transaction: Omit<Transaction, 'id' | 'category'> = {
+    const transaction: Omit<Transaction, 'id'> = {
       date: new Date(formData.date).toISOString(),
       type: formData.type,
+      category: getCategoryFromType(formData.type), // Add this line
       asset: formData.asset.toUpperCase(),
       amount: Number(formData.amount),
       price: formData.price ? Number(formData.price) : undefined,
