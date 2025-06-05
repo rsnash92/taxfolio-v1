@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+// src/App.tsx
+import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './components/pages/LandingPage';
 import { Dashboard } from './components/pages/Dashboard';
 import { AuthModal } from './components/auth/AuthModal';
@@ -6,16 +8,15 @@ import { AdminLogin } from './components/admin/AdminLogin';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { useAuthStore } from './store/authStore';
 import { useAdminAuthStore } from './store/adminAuthStore';
+import SignupPage from './pages/SignupPage';
 
-function App() {
+function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const location = useLocation();
 
   const { user } = useAuthStore();
   const { admin } = useAdminAuthStore();
-
-  // Check if we're on admin route
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
 
   const openLogin = () => {
     setAuthMode('login');
@@ -31,23 +32,36 @@ function App() {
     setShowAuthModal(false);
   };
 
-  // Admin routing
-  if (isAdminRoute) {
+  // Handle different routes
+  if (location.pathname === '/signup') {
+    // If user is already logged in, redirect to dashboard
+    if (user) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <SignupPage />;
+  }
+
+  if (location.pathname === '/dashboard') {
+    // Protected route - redirect to home if not logged in
+    if (!user) {
+      return <Navigate to="/" replace />;
+    }
+    return <Dashboard />;
+  }
+
+  if (location.pathname.startsWith('/admin')) {
     return admin ? <AdminDashboard /> : <AdminLogin />;
   }
 
-  // Regular user routing
+  // Home page
   return (
     <>
       {user ? (
-        // User is logged in - show dashboard
-        <Dashboard />
+        <Navigate to="/dashboard" replace />
       ) : (
-        // User not logged in - show landing page
         <LandingPage onLogin={openLogin} onSignup={openSignup} />
       )}
 
-      {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
           mode={authMode}
@@ -56,6 +70,16 @@ function App() {
         />
       )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/*" element={<AppContent />} />
+      </Routes>
+    </Router>
   );
 }
 
