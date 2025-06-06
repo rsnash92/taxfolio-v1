@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAssetPrices } from './usePrices';
+import { useAuthStore } from '../store/authStore';
+
+const API_URL = 'https://app.taxfolio.io/api';
 
 export interface Transaction {
   id: string;
@@ -42,127 +45,84 @@ const getCategoryFromType = (type: Transaction['type']): Transaction['category']
   }
 };
 
-// Sample data that matches your current UI
-const SAMPLE_TRANSACTIONS: Transaction[] = [
-  {
-    id: '1',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'transfer_out',
-    category: 'Outgoing',
-    asset: 'USDC',
-    amount: 13789.68173,
-    value: 10248.97,
-    fee: 0.01,
-    feeAsset: 'ETH',
-    exchange: 'Meta Mask (Base)',
-    gain: -0.01
-  },
-  {
-    id: '2',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'trade',
-    category: 'Trade',
-    fromAsset: 'USDC',
-    fromAmount: 300331.47612,
-    toAsset: 'BRETT',
-    toAmount: 13789.68175,
-    asset: 'BRETT',
-    amount: 13789.68175,
-    value: 10248.97,
-    fee: 0.03,
-    feeAsset: 'ETH',
-    exchange: 'Meta Mask (Base)',
-    gain: 1549.74
-  },
-  {
-    id: '3',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'transfer_in',
-    category: 'Incoming',
-    asset: 'BRETT',
-    amount: 300332.67680,
-    value: 11908.16,
-    exchange: 'Meta Mask (Base)'
-  },
-  {
-    id: '4',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'transfer_out',
-    category: 'Outgoing',
-    asset: 'BRETT',
-    amount: 70454.00000,
-    value: 4546.75,
-    fee: 0.01,
-    feeAsset: 'ETH',
-    exchange: 'Meta Mask (Base)',
-    gain: -0.01
-  },
-  {
-    id: '5',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'transfer_out',
-    category: 'Outgoing',
-    asset: 'BRETT',
-    amount: 30000.00000,
-    value: 1785.04,
-    fee: 0.01,
-    feeAsset: 'ETH',
-    exchange: 'Meta Mask (Base)',
-    gain: -0.01
-  },
-  {
-    id: '6',
-    date: '2024-05-23T17:31:21.000Z',
-    type: 'trade',
-    category: 'Trade',
-    fromAsset: 'USDC',
-    fromAmount: 7950.67800,
-    toAsset: 'BRETT',
-    toAmount: 139377.48677,
-    asset: 'BRETT',
-    amount: 139377.48677,
-    value: 5519.99,
-    fee: 0.20,
-    feeAsset: 'ETH',
-    exchange: 'Meta Mask (Base)',
-    gain: -0.13
-  }
-];
+// Helper to get auth headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('accessToken');
+  return token ? { 
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  } : {
+    'Content-Type': 'application/json'
+  };
+};
 
 export const useTransactions = () => {
-  // Initialize transactions from localStorage or use sample data
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const stored = localStorage.getItem('taxfolio-transactions');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (error) {
-        console.error('Error parsing stored transactions:', error);
-        return SAMPLE_TRANSACTIONS;
-      }
-    }
-    return SAMPLE_TRANSACTIONS;
-  });
+  const { user } = useAuthStore();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Save to localStorage whenever transactions change
+  // Fetch transactions from backend when component mounts or user changes
   useEffect(() => {
-    localStorage.setItem('taxfolio-transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    if (!user) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchTransactions();
+  }, [user?.id]); // Re-fetch when user changes
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${API_URL}/transactions`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid
+          throw new Error('Please log in again');
+        }
+        throw new Error('Failed to fetch transactions');
+      }
+
+      const data = await response.json();
+      
+      // Transform backend data to match your frontend format if needed
+      const transformedTransactions = data.map((tx: any) => ({
+        ...tx,
+        category: getCategoryFromType(tx.type),
+      }));
+
+      setTransactions(transformedTransactions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      console.error('Error fetching transactions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get live prices for all assets in transactions
   const { prices, loading: pricesLoading, getPriceForAsset, getValueForAmount } = useAssetPrices(transactions);
+
   const [filters, setFilters] = useState({
     search: '',
     dateRange: '',
     category: '',
     asset: ''
   });
+
   const [sortBy, setSortBy] = useState<keyof Transaction>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  // Filter and sort transactions
+  // Filter and sort transactions (same as before)
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
 
@@ -245,38 +205,102 @@ export const useTransactions = () => {
 
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
 
-  // Add imported transactions
-  const addImportedTransactions = (importedTransactions: any[]) => {
-    const newTransactions: Transaction[] = importedTransactions.map(imported => ({
-      ...imported,
-      category: getCategoryFromType(imported.type),
-      value: imported.amount * (imported.price || 0),
-      gain: imported.gain || 0
-    }));
+  // Add imported transactions - save to backend
+  const addImportedTransactions = async (importedTransactions: any[]) => {
+    try {
+      const newTransactions: Transaction[] = importedTransactions.map(imported => ({
+        ...imported,
+        category: getCategoryFromType(imported.type),
+        value: imported.amount * (imported.price || 0),
+        gain: imported.gain || 0
+      }));
 
-    setTransactions(prev => [...newTransactions, ...prev]);
+      // Send to backend
+      const response = await fetch(`${API_URL}/transactions/bulk`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ transactions: newTransactions }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to import transactions');
+      }
+
+      // Refresh transactions from backend
+      await fetchTransactions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import transactions');
+      console.error('Error importing transactions:', err);
+    }
   };
 
-  // Add single transaction
-  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: Date.now().toString(),
-      category: getCategoryFromType(transaction.type)
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
+  // Add single transaction - save to backend
+  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+    try {
+      const newTransaction = {
+        ...transaction,
+        category: getCategoryFromType(transaction.type)
+      };
+
+      const response = await fetch(`${API_URL}/transactions`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newTransaction),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add transaction');
+      }
+
+      // Refresh transactions from backend
+      await fetchTransactions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add transaction');
+      console.error('Error adding transaction:', err);
+    }
   };
 
-  // Update transaction
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions(prev => prev.map(tx => 
-      tx.id === id ? { ...tx, ...updates, category: getCategoryFromType(updates.type || tx.type) } : tx
-    ));
+  // Update transaction - save to backend
+  const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    try {
+      const response = await fetch(`${API_URL}/transactions/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update transaction');
+      }
+
+      // Refresh transactions from backend
+      await fetchTransactions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update transaction');
+      console.error('Error updating transaction:', err);
+    }
   };
 
-  // Delete transaction
-  const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(tx => tx.id !== id));
+  // Delete transaction - delete from backend
+  const deleteTransaction = async (id: string) => {
+    try {
+      const response = await fetch(`${API_URL}/transactions/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete transaction');
+      }
+
+      // Remove from local state immediately for better UX
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete transaction');
+      console.error('Error deleting transaction:', err);
+      // Refresh to ensure consistency
+      await fetchTransactions();
+    }
   };
 
   // Get unique assets for filter
@@ -285,7 +309,7 @@ export const useTransactions = () => {
     return Array.from(assets).sort();
   }, [transactions]);
 
-  // Get portfolio summary with live prices
+  // Get portfolio summary with live prices (same as before)
   const portfolioSummary = useMemo(() => {
     const holdings = new Map<string, { amount: number; value: number; currentPrice: number }>();
     
@@ -388,11 +412,15 @@ export const useTransactions = () => {
     prices,
     pricesLoading,
     getPriceForAsset,
-    getValueForAmount
+    getValueForAmount,
+    // Loading and error states
+    loading,
+    error,
+    refetch: fetchTransactions
   };
 };
 
-// Hook for managing the import modal
+// Hook for managing the import modal (same as before)
 export const useTransactionImport = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   
@@ -406,7 +434,7 @@ export const useTransactionImport = () => {
   };
 };
 
-// Hook for managing the add transaction modal
+// Hook for managing the add transaction modal (same as before)
 export const useAddTransaction = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
