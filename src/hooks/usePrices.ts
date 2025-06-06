@@ -20,7 +20,7 @@ export const usePrices = (symbols: string[] = [], autoRefresh = true): UsePrices
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousSymbolsRef = useRef<string>('');
 
   const fetchPrices = useCallback(async (symbolsToFetch: string[]) => {

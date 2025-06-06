@@ -20,7 +20,7 @@ interface AuthResponse {
 
 const SignupPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
+  const { signup } = useAuthStore();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,11 +75,6 @@ const SignupPage: React.FC = () => {
           // Store tokens
           localStorage.setItem('accessToken', data.accessToken);
           localStorage.setItem('refreshToken', data.refreshToken);
-          
-          // Update auth store with user data
-          if (data.user) {
-            setUser(data.user);
-          }
           
           // Navigate to dashboard
           navigate('/dashboard');
