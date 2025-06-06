@@ -447,11 +447,10 @@ export function AccountsPage() {
                   <div className="flex items-center space-x-1">
                     {account.assets.slice(0, 4).map((asset, index) => (
                       <div key={asset.asset} className="flex items-center">
-                        <CoinIcon 
-                          symbol={asset.asset} 
-                          size={24} 
-                          className="rounded-full border border-gray-200"
-                          title={`${asset.asset}: ${formatCurrency(asset.value)}`}
+                        <CoinIcon
+                          symbol={asset.asset}
+                          size={20}
+                          className="flex-shrink-0"
                         />
                       </div>
                     ))}
