@@ -1,18 +1,23 @@
+// src/store/authStore.ts
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface User {
   id: string
-  name: string
+  name?: string
   email: string
   createdAt: string
+  tier?: string
+  is_verified?: boolean
   transactionCount?: number
 }
 
 interface AuthState {
   user: User | null
+  token: string | null
   isLoading: boolean
   error: string | null
-  isInitialized: boolean // Add this flag
+  isInitialized: boolean
   login: (email: string, password: string) => Promise<boolean>
   signup: (name: string, email: string, password: string) => Promise<boolean>
   logout: () => void
@@ -21,140 +26,181 @@ interface AuthState {
   updateTransactionCount: (count: number) => void
 }
 
-// Mock user database (in real app, this would be your backend)
-const USERS_KEY = 'taxfolio_users'
-const CURRENT_USER_KEY = 'taxfolio_current_user'
-
-// Initialize user from localStorage immediately
-const getInitialUser = (): User | null => {
-  try {
-    const currentUser = localStorage.getItem(CURRENT_USER_KEY)
-    if (currentUser) {
-      const user = JSON.parse(currentUser)
-      // Add mock transaction count if not exists
-      if (!user.transactionCount) {
-        user.transactionCount = Math.floor(Math.random() * 2000) + 500
-      }
-      return user
-    }
-  } catch (error) {
-    console.error('Failed to get initial user:', error)
-  }
-  return null
+// Helper to get auth headers
+export const getAuthHeaders = (): HeadersInit => {
+  const state = useAuthStore.getState()
+  return state.token ? { Authorization: `Bearer ${state.token}` } : {}
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: getInitialUser(), // Initialize with user from localStorage
-  isLoading: false,
-  error: null,
-  isInitialized: false,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isLoading: false,
+      error: null,
+      isInitialized: false,
 
-  login: async (email: string, password: string) => {
-    set({ isLoading: true, error: null })
-    
-    try {
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-      const user = users.find((u: any) => u.email === email && u.password === password)
-      
-      if (user) {
-        // Remove password before storing user
-        const { password: _, ...userWithoutPassword } = user
+      login: async (email: string, password: string) => {
+        set({ isLoading: true, error: null })
         
-        // Add mock transaction count if not exists
-        if (!userWithoutPassword.transactionCount) {
-          userWithoutPassword.transactionCount = Math.floor(Math.random() * 2000) + 500
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          })
+
+          const data = await response.json()
+          
+          if (response.ok && data.token) {
+            // Store user and token
+            set({ 
+              user: data.user, 
+              token: data.token,
+              isLoading: false,
+              error: null,
+              isInitialized: true
+            })
+            return true
+          } else {
+            set({ 
+              error: data.message || data.error || 'Invalid email or password', 
+              isLoading: false 
+            })
+            return false
+          }
+        } catch (error) {
+          console.error('Login error:', error)
+          set({ 
+            error: 'Network error. Please check your connection.', 
+            isLoading: false 
+          })
+          return false
+        }
+      },
+
+      signup: async (name: string, email: string, password: string) => {
+        set({ isLoading: true, error: null })
+        
+        try {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, email, password }),
+          })
+
+          const data = await response.json()
+          
+          if (response.ok) {
+            // If the API returns a token immediately (user is verified)
+            if (data.token) {
+              set({ 
+                user: data.user, 
+                token: data.token,
+                isLoading: false,
+                error: null,
+                isInitialized: true
+              })
+              return true
+            } else {
+              // Email verification required
+              set({ 
+                isLoading: false,
+                error: null 
+              })
+              return true
+            }
+          } else {
+            set({ 
+              error: data.message || data.error || 'Signup failed', 
+              isLoading: false 
+            })
+            return false
+          }
+        } catch (error) {
+          console.error('Signup error:', error)
+          set({ 
+            error: 'Network error. Please check your connection.', 
+            isLoading: false 
+          })
+          return false
+        }
+      },
+
+      logout: () => {
+        // Optional: Call logout endpoint
+        const { token } = get()
+        if (token) {
+          fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              ...getAuthHeaders(),
+              'Content-Type': 'application/json',
+            },
+          }).catch(console.error)
         }
         
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword))
-        set({ user: userWithoutPassword, isLoading: false })
-        return true
-      } else {
-        set({ error: 'Invalid email or password', isLoading: false })
-        return false
-      }
-    } catch (error) {
-      set({ error: 'Login failed', isLoading: false })
-      return false
-    }
-  },
+        // Clear local state
+        set({ 
+          user: null, 
+          token: null, 
+          error: null,
+          isInitialized: false 
+        })
+      },
 
-  signup: async (name: string, email: string, password: string) => {
-    set({ isLoading: true, error: null })
-    
-    try {
-      // Get existing users
-      const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-      
-      // Check if user already exists
-      if (users.some((u: any) => u.email === email)) {
-        set({ error: 'User with this email already exists', isLoading: false })
-        return false
-      }
-      
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        name,
-        email,
-        password, // In real app, this would be hashed
-        createdAt: new Date().toISOString(),
-        transactionCount: Math.floor(Math.random() * 1000) + 100,
-      }
-      
-      // Save to localStorage
-      users.push(newUser)
-      localStorage.setItem(USERS_KEY, JSON.stringify(users))
-      
-      // Log the user in
-      const { password: _, ...userWithoutPassword } = newUser
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword))
-      set({ user: userWithoutPassword, isLoading: false })
-      return true
-    } catch (error) {
-      set({ error: 'Signup failed', isLoading: false })
-      return false
-    }
-  },
+      clearError: () => {
+        set({ error: null })
+      },
 
-  logout: () => {
-    localStorage.removeItem(CURRENT_USER_KEY)
-    set({ user: null, error: null })
-  },
-
-  clearError: () => {
-    set({ error: null })
-  },
-
-  initializeAuth: () => {
-    // This is now mainly for re-initialization if needed
-    try {
-      const currentUser = localStorage.getItem(CURRENT_USER_KEY)
-      if (currentUser) {
-        const user = JSON.parse(currentUser)
-        
-        // Add mock transaction count if not exists
-        if (!user.transactionCount) {
-          user.transactionCount = Math.floor(Math.random() * 2000) + 500
-          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
+      initializeAuth: async () => {
+        const { token } = get()
+        if (!token) {
+          set({ isInitialized: true })
+          return
         }
-        
-        set({ user, isInitialized: true })
-      } else {
-        set({ isInitialized: true })
-      }
-    } catch (error) {
-      console.error('Failed to initialize auth:', error)
-      set({ isInitialized: true })
-    }
-  },
 
-  updateTransactionCount: (count: number) => {
-    const { user } = get()
-    if (user) {
-      const updatedUser = { ...user, transactionCount: count }
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser))
-      set({ user: updatedUser })
+        try {
+          // Validate token with backend
+          const response = await fetch('/api/auth/me', {
+            headers: getAuthHeaders(),
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            set({ 
+              user: data.user || data,
+              isInitialized: true 
+            })
+          } else {
+            // Token is invalid
+            get().logout()
+            set({ isInitialized: true })
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error)
+          set({ isInitialized: true })
+        }
+      },
+
+      updateTransactionCount: (count: number) => {
+        const { user } = get()
+        if (user) {
+          set({ user: { ...user, transactionCount: count } })
+        }
+      },
+    }),
+    {
+      name: 'taxfolio-auth',
+      partialize: (state) => ({ 
+        user: state.user, 
+        token: state.token 
+      }),
     }
-  },
-}))
+  )
+)
