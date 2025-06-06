@@ -27,6 +27,11 @@ export const TransactionsTable: React.FC = () => {
     deleteTransaction
   } = useTransactions();
 
+  console.log('Transactions in table:', transactions);
+  console.log('Total transactions:', totalTransactions);
+  console.log('Current page:', currentPage);
+  console.log('Total pages:', totalPages);
+
   const { isImportModalOpen, openImportModal, closeImportModal } = useTransactionImport();
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
   const openAddModal = () => setIsAddModalOpen(true);
