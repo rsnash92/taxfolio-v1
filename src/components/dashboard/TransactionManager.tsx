@@ -170,7 +170,7 @@ export function TransactionManager() {
           </div>
         </div>
         
-        <TransactionsTable transactions={sortedTransactions} />
+        <TransactionsTable />
       </div>
 
       {/* Transaction Form Modal */}
