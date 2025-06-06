@@ -226,7 +226,7 @@ export const TransactionsTable: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {transactions.map((tx, index) => {
                 const { date, time } = formatDate(tx.date);
-                const txId = `0x${tx.id.slice(-3)}`;
+                const txId = `0x${String(tx.id).slice(-3)}`;
                 
                 return (
                   <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
