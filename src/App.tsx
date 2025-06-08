@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './components/pages/LandingPage';
 import { Dashboard } from './components/pages/Dashboard';
@@ -155,6 +155,13 @@ function AppContent() {
 }
 
 function App() {
+  const { initializeAuth } = useAuthStore();
+  
+  // Initialize auth on app mount
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <Router>
       <Routes>
