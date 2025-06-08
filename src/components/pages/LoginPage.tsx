@@ -21,7 +21,7 @@ interface AuthResponse {
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuthStore();
+  const { login, error: authError } = useAuthStore();
   
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -101,10 +101,10 @@ export function LoginPage() {
             Sign in to your account
           </h2>
 
-          {error && (
+          {(error || authError) && (
             <div className="mb-6 p-4 bg-red-900/20 border border-red-500/20 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-400">{error}</p>
+              <p className="text-sm text-red-400">{error || authError}</p>
             </div>
           )}
 

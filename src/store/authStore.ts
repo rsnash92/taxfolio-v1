@@ -29,7 +29,8 @@ interface AuthState {
 // Helper to get auth headers
 export const getAuthHeaders = (): HeadersInit => {
   const state = useAuthStore.getState()
-  return state.token ? { Authorization: `Bearer ${state.token}` } : {}
+  const token = state.token || localStorage.getItem('accessToken');
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -55,15 +56,27 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await response.json()
           
-          if (response.ok && data.token) {
+          if (response.ok && (data.token || data.accessToken)) {
+            // Handle both field names
+            const token = data.token || data.accessToken;
+            
             // Store user and token
             set({ 
               user: data.user, 
-              token: data.token,
+              token: token,
               isLoading: false,
               error: null,
               isInitialized: true
             })
+            
+            // Also store in localStorage for backward compatibility
+            if (data.accessToken) {
+              localStorage.setItem('accessToken', data.accessToken);
+            }
+            if (data.refreshToken) {
+              localStorage.setItem('refreshToken', data.refreshToken);
+            }
+            
             return true
           } else {
             set({ 
@@ -98,14 +111,25 @@ export const useAuthStore = create<AuthState>()(
           
           if (response.ok) {
             // If the API returns a token immediately (user is verified)
-            if (data.token) {
+            if (data.token || data.accessToken) {
+              const token = data.token || data.accessToken;
+              
               set({ 
                 user: data.user, 
-                token: data.token,
+                token: token,
                 isLoading: false,
                 error: null,
                 isInitialized: true
               })
+              
+              // Store tokens in localStorage
+              if (data.accessToken) {
+                localStorage.setItem('accessToken', data.accessToken);
+              }
+              if (data.refreshToken) {
+                localStorage.setItem('refreshToken', data.refreshToken);
+              }
+              
               return true
             } else {
               // Email verification required
@@ -145,6 +169,10 @@ export const useAuthStore = create<AuthState>()(
           }).catch(console.error)
         }
         
+        // Clear localStorage
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        
         // Clear local state
         set({ 
           user: null, 
@@ -159,7 +187,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       initializeAuth: async () => {
-        const { token } = get()
+        // Check both zustand state and localStorage
+        const stateToken = get().token;
+        const localToken = localStorage.getItem('accessToken');
+        const token = stateToken || localToken;
+        
         if (!token) {
           set({ isInitialized: true })
           return
@@ -168,13 +200,16 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Validate token with backend
           const response = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
           })
           
           if (response.ok) {
             const data = await response.json()
             set({ 
               user: data.user || data,
+              token: token,
               isInitialized: true 
             })
           } else {
