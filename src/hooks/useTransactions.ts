@@ -64,14 +64,15 @@ export const useTransactions = () => {
 
   // Fetch transactions from backend when component mounts or user changes
   useEffect(() => {
-    if (!user) {
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
+    const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
 
     fetchTransactions();
-  }, [user?.id]); // Re-fetch when user changes
+  }, []);
 
   const fetchTransactions = async () => {
     try {
