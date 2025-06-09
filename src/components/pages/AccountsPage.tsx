@@ -46,6 +46,8 @@ interface RecommendedAccount {
 }
 
 // Account connection configurations
+type SupportedConnectionType = keyof typeof SUPPORTED_CONNECTIONS;
+
 const SUPPORTED_CONNECTIONS = {
   // Exchanges
   coinbase: {
@@ -132,7 +134,7 @@ export function AccountsPage() {
   const [sortBy, setSortBy] = useState<'totalBalance' | 'name' | 'txCount'>('totalBalance');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
-  const [selectedAccountType, setSelectedAccountType] = useState<string | null>(null);
+  const [selectedAccountType, setSelectedAccountType] = useState<SupportedConnectionType | null>(null);
   const [connectionForm, setConnectionForm] = useState({
     apiKey: '',
     apiSecret: '',
@@ -325,7 +327,7 @@ export function AccountsPage() {
     }
   };
 
-  const handleAddAccount = (accountType: string) => {
+  const handleAddAccount = (accountType: SupportedConnectionType) => {
     setSelectedAccountType(accountType);
     setConnectionForm({ apiKey: '', apiSecret: '', address: '', name: '' });
   };
@@ -554,7 +556,7 @@ export function AccountsPage() {
                     </div>
                     <button 
                       onClick={() => {
-                        handleAddAccount(account.id);
+                        handleAddAccount(account.id as SupportedConnectionType);
                         setShowAddAccountModal(true);
                       }}
                       className="text-[#15e49e] hover:text-[#13c589] text-sm font-medium flex items-center gap-1 transition-colors"
@@ -591,7 +593,7 @@ export function AccountsPage() {
                   {Object.entries(SUPPORTED_CONNECTIONS).map(([key, config]) => (
                     <button
                       key={key}
-                      onClick={() => handleAddAccount(key)}
+                      onClick={() => handleAddAccount(key as SupportedConnectionType)}
                       className="p-4 bg-black border border-gray-700 rounded-lg hover:border-[#15e49e] transition-all group"
                     >
                       <div className="w-12 h-12 bg-[#111111] rounded-full flex items-center justify-center text-xl mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -619,7 +621,7 @@ export function AccountsPage() {
                       ←
                     </button>
                     <h2 className="text-xl font-bold">
-                      Connect {SUPPORTED_CONNECTIONS[selectedAccountType].name}
+                      Connect {selectedAccountType && SUPPORTED_CONNECTIONS[selectedAccountType].name}
                     </h2>
                   </div>
                   <button 
@@ -643,13 +645,13 @@ export function AccountsPage() {
                       type="text"
                       value={connectionForm.name}
                       onChange={(e) => setConnectionForm({ ...connectionForm, name: e.target.value })}
-                      placeholder={`My ${SUPPORTED_CONNECTIONS[selectedAccountType].name} Account`}
+                      placeholder={`My ${selectedAccountType && SUPPORTED_CONNECTIONS[selectedAccountType].name} Account`}
                       className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#15e49e] transition-colors"
                     />
                   </div>
 
                   {/* API Fields */}
-                  {SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('apiKey') && (
+                  {selectedAccountType && SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('apiKey') && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -681,7 +683,7 @@ export function AccountsPage() {
                   )}
 
                   {/* Address Field */}
-                  {SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('address') && (
+                  {selectedAccountType && SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('address') && (
                     <div>
                       <label className="block text-sm font-medium text-gray-400 mb-2">
                         Wallet Address
@@ -698,7 +700,7 @@ export function AccountsPage() {
                   )}
 
                   {/* Security Notice */}
-                  {SUPPORTED_CONNECTIONS[selectedAccountType].apiRequired && (
+                  {selectedAccountType && SUPPORTED_CONNECTIONS[selectedAccountType].apiRequired && (
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                       <div className="flex gap-3">
                         <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
