@@ -46,8 +46,6 @@ interface RecommendedAccount {
 }
 
 // Account connection configurations
-type SupportedConnectionType = keyof typeof SUPPORTED_CONNECTIONS;
-
 const SUPPORTED_CONNECTIONS = {
   // Exchanges
   coinbase: {
@@ -56,7 +54,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🟦',
     apiRequired: true,
     description: 'Connect your Coinbase Pro/Advanced account',
-    fields: ['apiKey', 'apiSecret']
+    fields: ['apiKey', 'apiSecret'] as string[]
   },
   binance: {
     name: 'Binance',
@@ -64,7 +62,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🟨',
     apiRequired: true,
     description: 'Connect your Binance account',
-    fields: ['apiKey', 'apiSecret']
+    fields: ['apiKey', 'apiSecret'] as string[]
   },
   kraken: {
     name: 'Kraken',
@@ -72,7 +70,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🟣',
     apiRequired: true,
     description: 'Connect your Kraken account',
-    fields: ['apiKey', 'apiSecret']
+    fields: ['apiKey', 'apiSecret'] as string[]
   },
   
   // Blockchain wallets
@@ -82,7 +80,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🦊',
     apiRequired: false,
     description: 'Connect your MetaMask wallet',
-    fields: []
+    fields: [] as string[]
   },
   walletconnect: {
     name: 'WalletConnect',
@@ -90,7 +88,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🔗',
     apiRequired: false,
     description: 'Connect any WalletConnect compatible wallet',
-    fields: []
+    fields: [] as string[]
   },
   
   // Blockchain networks
@@ -100,7 +98,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '⟡',
     apiRequired: false,
     description: 'Add Ethereum address',
-    fields: ['address']
+    fields: ['address'] as string[]
   },
   bitcoin: {
     name: 'Bitcoin',
@@ -108,7 +106,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '₿',
     apiRequired: false,
     description: 'Add Bitcoin address',
-    fields: ['address']
+    fields: ['address'] as string[]
   },
   base: {
     name: 'Base',
@@ -116,7 +114,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🔵',
     apiRequired: false,
     description: 'Add Base network address',
-    fields: ['address']
+    fields: ['address'] as string[]
   },
   arbitrum: {
     name: 'Arbitrum',
@@ -124,9 +122,11 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🔷',
     apiRequired: false,
     description: 'Add Arbitrum address',
-    fields: ['address']
+    fields: ['address'] as string[]
   }
-};
+} as const;
+
+type SupportedConnectionType = keyof typeof SUPPORTED_CONNECTIONS;
 
 export function AccountsPage() {
   const { allTransactions, portfolioSummary, getPriceForAsset, getValueForAmount } = useTransactions();
@@ -556,8 +556,10 @@ export function AccountsPage() {
                     </div>
                     <button 
                       onClick={() => {
-                        handleAddAccount(account.id as SupportedConnectionType);
-                        setShowAddAccountModal(true);
+                        if (account.id in SUPPORTED_CONNECTIONS) {
+                          handleAddAccount(account.id as SupportedConnectionType);
+                          setShowAddAccountModal(true);
+                        }
                       }}
                       className="text-[#15e49e] hover:text-[#13c589] text-sm font-medium flex items-center gap-1 transition-colors"
                     >
