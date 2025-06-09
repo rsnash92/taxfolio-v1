@@ -148,7 +148,7 @@ export const api = {
       apiRequest(`/tax/export/${year}?format=${format}`),
   },
 
-  // Exchange endpoints
+  // Exchange endpoints (deprecated - use connections.exchanges)
   exchanges: {
     list: () => apiRequest('/exchanges'),
     
@@ -167,5 +167,102 @@ export const api = {
       apiRequest(`/exchanges/${exchangeId}/sync`, {
         method: 'POST',
       }),
+  },
+
+  // Connection endpoints (new API structure)
+  connections: {
+    // Exchange connections
+    exchanges: {
+      list: () => apiRequest('/connections/exchanges'),
+      
+      connect: (data: {
+        exchange_name: string;
+        connection_name: string;
+        api_key: string;
+        api_secret: string;
+        api_passphrase?: string;
+      }) =>
+        apiRequest('/connections/exchanges', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+      
+      disconnect: (connectionId: string) =>
+        apiRequest(`/connections/exchanges/${connectionId}`, {
+          method: 'DELETE',
+        }),
+      
+      update: (connectionId: string, updates: any) =>
+        apiRequest(`/connections/exchanges/${connectionId}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        }),
+      
+      sync: (connectionId: string) =>
+        apiRequest(`/connections/exchanges/${connectionId}/sync`, {
+          method: 'POST',
+        }),
+      
+      getStatus: (connectionId: string) =>
+        apiRequest(`/connections/exchanges/${connectionId}/status`),
+    },
+
+    // Wallet connections
+    wallets: {
+      list: () => apiRequest('/connections/wallets'),
+      
+      connect: (data: {
+        wallet_name: string;
+        connection_type: string;
+        blockchain: string;
+        address: string;
+        network?: string;
+      }) =>
+        apiRequest('/connections/wallets', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+      
+      disconnect: (connectionId: string) =>
+        apiRequest(`/connections/wallets/${connectionId}`, {
+          method: 'DELETE',
+        }),
+      
+      update: (connectionId: string, updates: any) =>
+        apiRequest(`/connections/wallets/${connectionId}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        }),
+      
+      sync: (connectionId: string) =>
+        apiRequest(`/connections/wallets/${connectionId}/sync`, {
+          method: 'POST',
+        }),
+      
+      verify: (connectionId: string, signature?: string) =>
+        apiRequest(`/connections/wallets/${connectionId}/verify`, {
+          method: 'POST',
+          body: JSON.stringify({ signature }),
+        }),
+      
+      getStatus: (connectionId: string) =>
+        apiRequest(`/connections/wallets/${connectionId}/status`),
+    },
+
+    // Sync history and management
+    syncHistory: (connectionId?: string) => {
+      const endpoint = connectionId 
+        ? `/connections/sync-history?connection_id=${connectionId}`
+        : '/connections/sync-history';
+      return apiRequest(endpoint);
+    },
+    
+    cancelSync: (connectionId: string) =>
+      apiRequest(`/connections/${connectionId}/sync/cancel`, {
+        method: 'POST',
+      }),
+    
+    // Get all connections (both exchanges and wallets)
+    all: () => apiRequest('/connections'),
   },
 };
