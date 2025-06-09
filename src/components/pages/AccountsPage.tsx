@@ -1,6 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { useTransactions } from '../../hooks/useTransactions';
 import { CoinIcon } from '../common/CoinIcon';
+import { 
+  Plus, 
+  Search, 
+  RefreshCw, 
+  Settings, 
+  MoreVertical, 
+  Link2, 
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  X,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react';
 
 interface AccountType {
   id: string;
@@ -26,8 +41,7 @@ interface RecommendedAccount {
   id: string;
   name: string;
   icon: string;
-  color: string;
-  type: 'Exchange' | 'Blockchain';
+  type: 'Exchange' | 'Blockchain' | 'Wallet';
   description: string;
 }
 
@@ -38,25 +52,25 @@ const SUPPORTED_CONNECTIONS = {
     name: 'Coinbase',
     type: 'Exchange' as const,
     icon: '🟦',
-    color: 'bg-blue-500',
     apiRequired: true,
-    description: 'Connect your Coinbase Pro/Advanced account'
+    description: 'Connect your Coinbase Pro/Advanced account',
+    fields: ['apiKey', 'apiSecret']
   },
   binance: {
     name: 'Binance',
     type: 'Exchange' as const,
     icon: '🟨',
-    color: 'bg-yellow-500',
     apiRequired: true,
-    description: 'Connect your Binance account'
+    description: 'Connect your Binance account',
+    fields: ['apiKey', 'apiSecret']
   },
   kraken: {
     name: 'Kraken',
     type: 'Exchange' as const,
     icon: '🟣',
-    color: 'bg-purple-600',
     apiRequired: true,
-    description: 'Connect your Kraken account'
+    description: 'Connect your Kraken account',
+    fields: ['apiKey', 'apiSecret']
   },
   
   // Blockchain wallets
@@ -64,17 +78,17 @@ const SUPPORTED_CONNECTIONS = {
     name: 'MetaMask',
     type: 'Wallet' as const,
     icon: '🦊',
-    color: 'bg-orange-500',
     apiRequired: false,
-    description: 'Connect your MetaMask wallet'
+    description: 'Connect your MetaMask wallet',
+    fields: []
   },
   walletconnect: {
     name: 'WalletConnect',
     type: 'Wallet' as const,
     icon: '🔗',
-    color: 'bg-blue-600',
     apiRequired: false,
-    description: 'Connect any WalletConnect compatible wallet'
+    description: 'Connect any WalletConnect compatible wallet',
+    fields: []
   },
   
   // Blockchain networks
@@ -82,33 +96,33 @@ const SUPPORTED_CONNECTIONS = {
     name: 'Ethereum',
     type: 'Blockchain' as const,
     icon: '⟡',
-    color: 'bg-gray-700',
     apiRequired: false,
-    description: 'Add Ethereum address'
+    description: 'Add Ethereum address',
+    fields: ['address']
   },
   bitcoin: {
     name: 'Bitcoin',
     type: 'Blockchain' as const,
     icon: '₿',
-    color: 'bg-orange-600',
     apiRequired: false,
-    description: 'Add Bitcoin address'
+    description: 'Add Bitcoin address',
+    fields: ['address']
   },
   base: {
     name: 'Base',
     type: 'Blockchain' as const,
     icon: '🔵',
-    color: 'bg-blue-500',
     apiRequired: false,
-    description: 'Add Base network address'
+    description: 'Add Base network address',
+    fields: ['address']
   },
   arbitrum: {
     name: 'Arbitrum',
     type: 'Blockchain' as const,
     icon: '🔷',
-    color: 'bg-blue-600',
     apiRequired: false,
-    description: 'Add Arbitrum address'
+    description: 'Add Arbitrum address',
+    fields: ['address']
   }
 };
 
@@ -119,6 +133,12 @@ export function AccountsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [selectedAccountType, setSelectedAccountType] = useState<string | null>(null);
+  const [connectionForm, setConnectionForm] = useState({
+    apiKey: '',
+    apiSecret: '',
+    address: '',
+    name: ''
+  });
 
   // Process transactions to create account summary
   const accounts = useMemo(() => {
@@ -134,40 +154,42 @@ export function AccountsPage() {
         let icon = '🏛️';
         let color = 'bg-gray-500';
         
-        if (exchangeName.toLowerCase().includes('metamask') || exchangeName.toLowerCase().includes('wallet')) {
+        const exchangeLower = exchangeName.toLowerCase();
+        if (exchangeLower.includes('metamask') || exchangeLower.includes('wallet')) {
           type = 'Wallet';
           icon = '🦊';
-          color = 'bg-orange-500';
-        } else if (exchangeName.toLowerCase().includes('base')) {
+        } else if (exchangeLower.includes('base')) {
           type = 'Blockchain';
           icon = '🔵';
-          color = 'bg-blue-500';
-        } else if (exchangeName.toLowerCase().includes('ethereum')) {
+        } else if (exchangeLower.includes('ethereum')) {
           type = 'Blockchain';
           icon = '⟡';
-          color = 'bg-gray-700';
-        } else if (exchangeName.toLowerCase().includes('arbitrum')) {
+        } else if (exchangeLower.includes('arbitrum')) {
           type = 'Blockchain';
           icon = '🔷';
-          color = 'bg-blue-600';
-        } else if (exchangeName.toLowerCase().includes('coinbase')) {
+        } else if (exchangeLower.includes('coinbase')) {
           type = 'Exchange';
           icon = '🟦';
-          color = 'bg-blue-500';
+        } else if (exchangeLower.includes('binance')) {
+          type = 'Exchange';
+          icon = '🟨';
+        } else if (exchangeLower.includes('kraken')) {
+          type = 'Exchange';
+          icon = '🟣';
         }
         
         accountMap.set(exchangeName, {
           id: exchangeName.toLowerCase().replace(/\s+/g, '-'),
           name: exchangeName,
           type,
-          synced: '10h', // Mock sync time - will be real when connected
+          synced: '10h',
           txCount: 0,
           assets: [],
           totalBalance: 0,
           icon,
           color,
-          status: 'connected', // Mock status - will be real when connected
-          lastSync: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000) // Mock last sync
+          status: 'connected',
+          lastSync: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000)
         });
       }
       
@@ -210,7 +232,7 @@ export function AccountsPage() {
       
       // Convert to assets array and calculate total balance
       account.assets = Array.from(assetBalances.entries())
-        .filter(([_, amount]) => amount > 0.00001) // Filter out dust
+        .filter(([_, amount]) => amount > 0.00001)
         .map(([asset, amount]) => ({
           asset,
           amount,
@@ -224,18 +246,16 @@ export function AccountsPage() {
     return Array.from(accountMap.values());
   }, [allTransactions, getValueForAmount]);
 
-  // Get recommended accounts based on transaction patterns
+  // Get recommended accounts
   const recommendedAccounts = useMemo(() => {
     const connectedAccountNames = new Set(accounts.map(acc => acc.name.toLowerCase()));
     const recommendations: RecommendedAccount[] = [];
     
-    // Suggest popular exchanges if not connected
     if (!connectedAccountNames.has('coinbase')) {
       recommendations.push({
         id: 'coinbase',
         name: 'Coinbase',
         icon: '🟦',
-        color: 'bg-blue-500',
         type: 'Exchange',
         description: 'Popular US exchange with easy fiat onramp'
       });
@@ -246,7 +266,6 @@ export function AccountsPage() {
         id: 'binance',
         name: 'Binance',
         icon: '🟨',
-        color: 'bg-yellow-500',
         type: 'Exchange',
         description: 'World\'s largest crypto exchange'
       });
@@ -280,7 +299,7 @@ export function AccountsPage() {
       style: 'currency',
       currency: 'GBP',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 6
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
@@ -306,117 +325,126 @@ export function AccountsPage() {
     }
   };
 
-  const getSortIcon = (column: 'totalBalance' | 'name' | 'txCount') => {
-    if (sortBy !== column) return '↕️';
-    return sortOrder === 'asc' ? '↑' : '↓';
-  };
-
   const handleAddAccount = (accountType: string) => {
     setSelectedAccountType(accountType);
-    setShowAddAccountModal(true);
+    setConnectionForm({ apiKey: '', apiSecret: '', address: '', name: '' });
   };
 
-  const getStatusColor = (status: AccountType['status']) => {
-    switch (status) {
-      case 'connected': return 'bg-green-100 text-green-800';
-      case 'syncing': return 'bg-blue-100 text-blue-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      case 'disconnected': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Implement actual connection logic
+    console.log('Connecting:', selectedAccountType, connectionForm);
+    setShowAddAccountModal(false);
+    setSelectedAccountType(null);
   };
 
   const getStatusIcon = (status: AccountType['status']) => {
     switch (status) {
-      case 'connected': return '✅';
-      case 'syncing': return '🔄';
-      case 'error': return '❌';
-      case 'disconnected': return '⭕';
-      default: return '❓';
+      case 'connected':
+        return <CheckCircle className="w-4 h-4 text-[#15e49e]" />;
+      case 'syncing':
+        return <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />;
+      case 'error':
+        return <XCircle className="w-4 h-4 text-red-400" />;
+      case 'disconnected':
+        return <AlertCircle className="w-4 h-4 text-gray-400" />;
     }
   };
 
+  const SortIcon = ({ field }: { field: typeof sortBy }) => {
+    if (sortBy !== field) return null;
+    return sortOrder === 'asc' ? 
+      <ChevronUp className="w-4 h-4 inline ml-1" /> : 
+      <ChevronDown className="w-4 h-4 inline ml-1" />;
+  };
+
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen bg-black text-white p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Accounts</h1>
+        <h1 className="text-3xl font-bold">Accounts</h1>
         <button 
           onClick={() => setShowAddAccountModal(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors"
+          className="bg-[#15e49e] hover:bg-[#13c589] text-black px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
         >
-          <span>+</span>
-          <span>Add account</span>
+          <Plus className="w-4 h-4" />
+          Add account
         </button>
       </div>
 
       {/* Main Content */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-[#111111] rounded-lg border border-gray-800 overflow-hidden">
         {/* Table Header */}
-        <div className="border-b border-gray-200 p-6">
+        <div className="border-b border-gray-800 p-6">
           <div className="grid grid-cols-12 gap-4 items-center">
-            <div className="col-span-3">
-              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Account</span>
+            <div className="col-span-3 text-sm font-medium text-gray-400 uppercase tracking-wider">
+              Account
             </div>
-            <div className="col-span-2 flex items-center">
+            <div className="col-span-2">
               <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full bg-black border border-gray-700 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:border-[#15e49e] transition-colors"
                 />
-                <div className="absolute left-2.5 top-2.5 text-gray-400">
-                  🔍
-                </div>
               </div>
             </div>
-            <div className="col-span-1 text-center">
-              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Synced</span>
+            <div className="col-span-1 text-center text-sm font-medium text-gray-400 uppercase tracking-wider">
+              Synced
             </div>
-            <div className="col-span-1 text-center">
-              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Type</span>
+            <div className="col-span-1 text-center text-sm font-medium text-gray-400 uppercase tracking-wider">
+              Type
             </div>
             <div className="col-span-1 text-center">
               <button
                 onClick={() => handleSort('txCount')}
-                className="text-sm font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700 flex items-center space-x-1"
+                className="text-sm font-medium text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
               >
-                <span>Tx</span>
-                <span className="text-xs">{getSortIcon('txCount')}</span>
+                Tx <SortIcon field="txCount" />
               </button>
             </div>
-            <div className="col-span-2 text-center">
-              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Assets</span>
+            <div className="col-span-2 text-center text-sm font-medium text-gray-400 uppercase tracking-wider">
+              Assets
             </div>
             <div className="col-span-2 text-right">
               <button
                 onClick={() => handleSort('totalBalance')}
-                className="text-sm font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700 flex items-center space-x-1 ml-auto"
+                className="text-sm font-medium text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
               >
-                <span>Balance</span>
-                <span className="text-xs">{getSortIcon('totalBalance')}</span>
+                Balance <SortIcon field="totalBalance" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Account Rows */}
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-800">
           {filteredAccounts.map((account) => (
-            <div key={account.id} className="p-6 hover:bg-gray-50 transition-colors group">
+            <div key={account.id} className="p-6 hover:bg-black/50 transition-colors group">
               <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Account Name & Icon */}
-                <div className="col-span-3 flex items-center space-x-3">
-                  <div className={`w-8 h-8 ${account.color} rounded-full flex items-center justify-center text-white text-sm font-medium`}>
+                <div className="col-span-3 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#111111] border border-gray-700 rounded-full flex items-center justify-center text-lg">
                     {account.icon}
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">{account.name}</div>
-                    <div className={`text-sm flex items-center space-x-1 ${getStatusColor(account.status)}`}>
-                      <span>{getStatusIcon(account.status)}</span>
-                      <span>{account.status === 'connected' ? 'Connected' : 'Connection issue'}</span>
+                    <div className="font-medium">{account.name}</div>
+                    <div className="text-sm flex items-center gap-1.5 mt-0.5">
+                      {getStatusIcon(account.status)}
+                      <span className={
+                        account.status === 'connected' ? 'text-[#15e49e]' :
+                        account.status === 'syncing' ? 'text-blue-400' :
+                        account.status === 'error' ? 'text-red-400' :
+                        'text-gray-400'
+                      }>
+                        {account.status === 'connected' ? 'Connected' :
+                         account.status === 'syncing' ? 'Syncing' :
+                         account.status === 'error' ? 'Error' :
+                         'Disconnected'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -426,38 +454,36 @@ export function AccountsPage() {
 
                 {/* Synced Status */}
                 <div className="col-span-1 text-center">
-                  <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-sm ${getStatusColor(account.status)}`}>
+                  <div className="inline-flex items-center gap-1 text-sm text-gray-400">
                     <span>{getTimeSinceSync(account.lastSync)}</span>
-                    <span>🔄</span>
+                    <RefreshCw className="w-3 h-3" />
                   </div>
                 </div>
 
                 {/* Type */}
                 <div className="col-span-1 text-center">
-                  <span className="text-sm text-gray-600">{account.type}</span>
+                  <span className="text-sm text-gray-400">{account.type}</span>
                 </div>
 
                 {/* Transaction Count */}
                 <div className="col-span-1 text-center">
-                  <span className="text-sm font-medium text-gray-900">{account.txCount}</span>
+                  <span className="text-sm font-medium">{account.txCount}</span>
                 </div>
 
                 {/* Assets */}
                 <div className="col-span-2">
-                  <div className="flex items-center space-x-1">
-                    {account.assets.slice(0, 4).map((asset, index) => (
-                      <div key={asset.asset} className="flex items-center">
-                        <CoinIcon
-                          symbol={asset.asset}
-                          size={20}
-                          className="flex-shrink-0"
-                        />
-                      </div>
+                  <div className="flex items-center gap-1">
+                    {account.assets.slice(0, 4).map((asset) => (
+                      <CoinIcon
+                        key={asset.asset}
+                        symbol={asset.asset}
+                        size={20}
+                      />
                     ))}
                     {account.assets.length > 4 && (
-                      <div className="text-sm text-gray-500 ml-1">
+                      <span className="text-sm text-gray-400 ml-1">
                         +{account.assets.length - 4}
-                      </div>
+                      </span>
                     )}
                   </div>
                 </div>
@@ -465,23 +491,17 @@ export function AccountsPage() {
                 {/* Balance & Actions */}
                 <div className="col-span-2 flex items-center justify-between">
                   <div className="text-right">
-                    <div className="font-medium text-gray-900">{formatCurrency(account.totalBalance)}</div>
+                    <div className="font-medium">{formatCurrency(account.totalBalance)}</div>
                   </div>
-                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      className="text-gray-400 hover:text-gray-600 text-sm"
-                      title="Refresh account"
-                    >
-                      🔄
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="text-gray-400 hover:text-white p-1">
+                      <RefreshCw className="w-4 h-4" />
                     </button>
-                    <button 
-                      className="text-gray-400 hover:text-gray-600 text-sm"
-                      title="Account settings"
-                    >
-                      ⚙️
+                    <button className="text-gray-400 hover:text-white p-1">
+                      <Settings className="w-4 h-4" />
                     </button>
-                    <button className="text-gray-400 hover:text-gray-600 text-sm">
-                      ⋮
+                    <button className="text-gray-400 hover:text-white p-1">
+                      <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -493,11 +513,11 @@ export function AccountsPage() {
         {/* Empty State */}
         {filteredAccounts.length === 0 && (
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-gray-400 text-2xl">🔗</span>
+            <div className="w-16 h-16 bg-[#111111] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Link2 className="w-8 h-8 text-gray-400" />
             </div>
-            <p className="text-gray-500 font-medium">No accounts found</p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 font-medium">No accounts found</p>
+            <p className="text-gray-500 text-sm mt-1">
               {searchTerm ? 'Try adjusting your search' : 'Connect your first account to get started'}
             </p>
           </div>
@@ -507,49 +527,44 @@ export function AccountsPage() {
       {/* Recommended Accounts Section */}
       {recommendedAccounts.length > 0 && (
         <div className="mt-8">
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-lg text-sm font-medium">
-                    Recommended accounts
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">
-                  Connect popular exchanges and wallets to improve your portfolio tracking accuracy.
-                </p>
-                
-                {/* Recommended Account Cards */}
-                <div className="space-y-3">
-                  {recommendedAccounts.map((account) => (
-                    <div key={account.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 ${account.color} rounded-full flex items-center justify-center text-white text-sm`}>
-                            {account.icon}
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-900">{account.name}</span>
-                            <p className="text-sm text-gray-500">{account.description}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <button 
-                            onClick={() => handleAddAccount(account.id)}
-                            className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"
-                          >
-                            <span>+</span>
-                            <span>Add account</span>
-                          </button>
-                          <button className="text-gray-400 hover:text-gray-600 text-sm">
-                            ✕
-                          </button>
-                        </div>
+          <div className="bg-[#111111] border border-gray-800 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <span className="text-[#15e49e]">💡</span>
+                Recommended accounts
+              </h3>
+            </div>
+            <p className="text-sm text-gray-400 mb-6">
+              Connect popular exchanges and wallets to improve your portfolio tracking accuracy.
+            </p>
+            
+            {/* Recommended Account Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recommendedAccounts.map((account) => (
+                <div key={account.id} className="bg-black border border-gray-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#111111] rounded-full flex items-center justify-center text-lg">
+                        {account.icon}
+                      </div>
+                      <div>
+                        <div className="font-medium">{account.name}</div>
+                        <p className="text-sm text-gray-400">{account.description}</p>
                       </div>
                     </div>
-                  ))}
+                    <button 
+                      onClick={() => {
+                        handleAddAccount(account.id);
+                        setShowAddAccountModal(true);
+                      }}
+                      className="text-[#15e49e] hover:text-[#13c589] text-sm font-medium flex items-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add account
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -557,52 +572,178 @@ export function AccountsPage() {
 
       {/* Add Account Modal */}
       {showAddAccountModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Add Account</h2>
-              <button 
-                onClick={() => setShowAddAccountModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {Object.entries(SUPPORTED_CONNECTIONS).map(([key, config]) => (
-                  <button
-                    key={key}
-                    onClick={() => handleAddAccount(key)}
-                    className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111111] border border-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {!selectedAccountType ? (
+              // Account Selection
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold">Add Account</h2>
+                  <button 
+                    onClick={() => setShowAddAccountModal(false)}
+                    className="text-gray-400 hover:text-white p-1"
                   >
-                    <div className={`w-12 h-12 ${config.color} rounded-full flex items-center justify-center text-white text-lg mx-auto mb-2`}>
-                      {config.icon}
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">{config.name}</div>
-                    <div className="text-xs text-gray-500">{config.type}</div>
+                    <X className="w-6 h-6" />
                   </button>
-                ))}
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.entries(SUPPORTED_CONNECTIONS).map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => handleAddAccount(key)}
+                      className="p-4 bg-black border border-gray-700 rounded-lg hover:border-[#15e49e] transition-all group"
+                    >
+                      <div className="w-12 h-12 bg-[#111111] rounded-full flex items-center justify-center text-xl mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        {config.icon}
+                      </div>
+                      <div className="font-medium mb-1">{config.name}</div>
+                      <div className="text-xs text-gray-400">{config.type}</div>
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="text-center text-sm text-gray-400 mt-6">
+                  More integrations coming soon!
+                </div>
               </div>
-              
-              <div className="text-center text-sm text-gray-500 pt-4">
-                More integrations coming soon!
+            ) : (
+              // Connection Form
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedAccountType(null)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      ←
+                    </button>
+                    <h2 className="text-xl font-bold">
+                      Connect {SUPPORTED_CONNECTIONS[selectedAccountType].name}
+                    </h2>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setShowAddAccountModal(false);
+                      setSelectedAccountType(null);
+                    }}
+                    className="text-gray-400 hover:text-white p-1"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleConnect} className="space-y-4">
+                  {/* Custom Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Account Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={connectionForm.name}
+                      onChange={(e) => setConnectionForm({ ...connectionForm, name: e.target.value })}
+                      placeholder={`My ${SUPPORTED_CONNECTIONS[selectedAccountType].name} Account`}
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#15e49e] transition-colors"
+                    />
+                  </div>
+
+                  {/* API Fields */}
+                  {SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('apiKey') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          API Key
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={connectionForm.apiKey}
+                          onChange={(e) => setConnectionForm({ ...connectionForm, apiKey: e.target.value })}
+                          className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none focus:border-[#15e49e] transition-colors"
+                          placeholder="Enter your API key..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          API Secret
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={connectionForm.apiSecret}
+                          onChange={(e) => setConnectionForm({ ...connectionForm, apiSecret: e.target.value })}
+                          className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none focus:border-[#15e49e] transition-colors"
+                          placeholder="Enter your API secret..."
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Address Field */}
+                  {SUPPORTED_CONNECTIONS[selectedAccountType].fields.includes('address') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                        Wallet Address
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={connectionForm.address}
+                        onChange={(e) => setConnectionForm({ ...connectionForm, address: e.target.value })}
+                        className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none focus:border-[#15e49e] transition-colors"
+                        placeholder="0x..."
+                      />
+                    </div>
+                  )}
+
+                  {/* Security Notice */}
+                  {SUPPORTED_CONNECTIONS[selectedAccountType].apiRequired && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                      <div className="flex gap-3">
+                        <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-400 mb-1">Security Notice</p>
+                          <p className="text-blue-300">
+                            Only grant read permissions when creating API keys. Never share your API credentials.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form Actions */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAccountType(null)}
+                      className="flex-1 bg-black border border-gray-700 hover:bg-gray-900 px-4 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-[#15e49e] hover:bg-[#13c589] text-black px-4 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </form>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Stats Footer */}
-      <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
+      <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
         <div>
           Showing {filteredAccounts.length} of {accounts.length} accounts
         </div>
-        <div className="flex items-center space-x-4">
-          <span>Total Balance: {formatCurrency(accounts.reduce((sum, acc) => sum + acc.totalBalance, 0))}</span>
+        <div className="flex items-center gap-6">
+          <span>Total Balance: <span className="text-[#15e49e] font-medium">{formatCurrency(accounts.reduce((sum, acc) => sum + acc.totalBalance, 0))}</span></span>
           <span>•</span>
-          <span>Total Transactions: {accounts.reduce((sum, acc) => sum + acc.txCount, 0)}</span>
+          <span>Total Transactions: <span className="text-white font-medium">{accounts.reduce((sum, acc) => sum + acc.txCount, 0)}</span></span>
         </div>
       </div>
     </div>
