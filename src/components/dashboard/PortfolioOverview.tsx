@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTransactions } from '../../hooks/useTransactions';
 import { CoinIcon } from '../common/CoinIcon';
 import { useTransactionIcons } from '../../hooks/useCoinIcons';
@@ -45,12 +45,15 @@ export function PortfolioOverview() {
 
   // Get top assets with mock performance data
   const topAssets = useMemo(() => {
+    const performanceValues = [15.2, -8.7, -12.3, 5.4, -2.1];
+    const gainLossMultipliers = [0.152, -0.087, -0.123, 0.054, -0.021];
+    
     return portfolioSummary.holdings
       .slice(0, 5)
       .map((holding, index) => ({
         ...holding,
-        performance: index === 0 ? 15.2 : index === 1 ? -8.7 : index === 2 ? -12.3 : index === 3 ? 5.4 : -2.1,
-        gainLoss: holding.value * (index === 0 ? 0.152 : index === 1 ? -0.087 : index === 2 ? -0.123 : index === 3 ? 0.054 : -0.021)
+        performance: performanceValues[index] || 0,
+        gainLoss: holding.value * (gainLossMultipliers[index] || 0)
       }));
   }, [portfolioSummary.holdings]);
 
@@ -243,7 +246,7 @@ export function PortfolioOverview() {
 
               {/* Asset List */}
               <div className="space-y-3">
-                {portfolioSummary.holdings.slice(0, 5).map((holding, index) => {
+                {portfolioSummary.holdings.slice(0, 5).map((holding) => {
                   const percentage = portfolioSummary.totalValue > 0 
                     ? (holding.value / portfolioSummary.totalValue) * 100 
                     : 0;
@@ -374,7 +377,7 @@ export function PortfolioOverview() {
         <div className="block sm:hidden">
           {portfolioSummary.holdings.length > 0 ? (
             <div className="divide-y divide-gray-800">
-              {portfolioSummary.holdings.map((holding, index) => {
+              {portfolioSummary.holdings.map((holding) => {
                 const mockCost = holding.value * 0.85;
                 const roi = ((holding.value - mockCost) / mockCost) * 100;
                 const unrealizedGain = holding.value - mockCost;
@@ -445,7 +448,7 @@ export function PortfolioOverview() {
               </tr>
             </thead>
             <tbody className="bg-[#111111] divide-y divide-gray-800">
-              {portfolioSummary.holdings.map((holding, index) => {
+              {portfolioSummary.holdings.map((holding) => {
                 const mockCost = holding.value * 0.85; // Mock cost basis
                 const roi = ((holding.value - mockCost) / mockCost) * 100;
                 const unrealizedGain = holding.value - mockCost;

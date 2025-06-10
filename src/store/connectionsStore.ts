@@ -121,6 +121,7 @@ interface ConnectionsState {
   isLoading: boolean;
   isConnecting: boolean;
   isSyncing: Record<string, boolean>; // Track syncing state per connection
+  hasInitialLoad: boolean; // Track if initial data fetch has completed
   
   // Error states
   error: string | null;
@@ -132,6 +133,7 @@ interface ConnectionsState {
   
   // Exchange actions
   connectExchange: (exchangeName: string, connectionName: string, apiKey: string, apiSecret: string, apiPassphrase?: string) => Promise<boolean>;
+  addExchangeConnection: (connection: ExchangeConnection) => void;
   disconnectExchange: (connectionId: string) => Promise<boolean>;
   syncExchange: (connectionId: string) => Promise<boolean>;
   updateExchangeSettings: (connectionId: string, settings: Partial<ExchangeConnection>) => Promise<boolean>;
@@ -158,6 +160,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
   isLoading: false,
   isConnecting: false,
   isSyncing: {},
+  hasInitialLoad: false,
   error: null,
   connectionErrors: {},
 
@@ -178,16 +181,21 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
         throw new Error(walletResult.error);
       }
 
+      const processedExchanges = Array.isArray(exchangeResult.data) ? exchangeResult.data : [];
+      const processedWallets = Array.isArray(walletResult.data) ? walletResult.data : [];
+
       set({
-        exchangeConnections: exchangeResult.data || [],
-        walletConnections: walletResult.data || [],
-        isLoading: false
+        exchangeConnections: processedExchanges,
+        walletConnections: processedWallets,
+        isLoading: false,
+        hasInitialLoad: true
       });
     } catch (error) {
       console.error('Error fetching connections:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to fetch connections',
-        isLoading: false
+        isLoading: false,
+        hasInitialLoad: true
       });
     }
   },
@@ -201,7 +209,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
         throw new Error(result.error);
       }
 
-      set({ syncHistory: result.data || [] });
+      set({ syncHistory: Array.isArray(result.data) ? result.data : [] });
     } catch (error) {
       console.error('Error fetching sync history:', error);
       set({ error: error instanceof Error ? error.message : 'Failed to fetch sync history' });
@@ -228,7 +236,9 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
       // Add the new connection to the list
       if (result.data) {
         set(state => ({
-          exchangeConnections: [...state.exchangeConnections, result.data],
+          exchangeConnections: Array.isArray(state.exchangeConnections) 
+            ? [...state.exchangeConnections, result.data] 
+            : [result.data],
           isConnecting: false
         }));
       }
@@ -242,6 +252,15 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
       });
       return false;
     }
+  },
+
+  // Add exchange connection (for manual integration like Coinbase OAuth)
+  addExchangeConnection: (connection) => {
+    set(state => ({
+      exchangeConnections: Array.isArray(state.exchangeConnections)
+        ? [...state.exchangeConnections, connection]
+        : [connection]
+    }));
   },
 
   // Disconnect exchange
@@ -348,7 +367,9 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
       // Add the new connection to the list
       if (result.data) {
         set(state => ({
-          walletConnections: [...state.walletConnections, result.data],
+          walletConnections: Array.isArray(state.walletConnections) 
+            ? [...state.walletConnections, result.data] 
+            : [result.data],
           isConnecting: false
         }));
       }

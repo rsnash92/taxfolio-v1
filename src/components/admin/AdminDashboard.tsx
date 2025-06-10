@@ -3,10 +3,10 @@ import { useAdminAuthStore } from '../../store/adminAuthStore'
 import { useAdminAnalyticsStore } from '../../store/adminAnalyticsStore'
 import {
   Users, TrendingUp, DollarSign, Activity,
-  BarChart3, UserCheck, UserX, Clock,
-  Search, Filter, Download, RefreshCw,
-  LogOut, Settings, Home, Database,
-  AlertTriangle, CheckCircle, XCircle
+  BarChart3, UserCheck, Clock,
+  Search, Download, RefreshCw,
+  LogOut, Home, Database,
+  AlertTriangle, CheckCircle
 } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {

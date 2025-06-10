@@ -29,8 +29,35 @@ interface AuthState {
 // Helper to get auth headers
 export const getAuthHeaders = (): HeadersInit => {
   const state = useAuthStore.getState()
-  const token = state.token || localStorage.getItem('accessToken');
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  const stateToken = state.token
+  const localToken = localStorage.getItem('accessToken')
+  const token = stateToken || localToken
+  
+  console.log('getAuthHeaders() called:', { 
+    hasToken: !!token, 
+    tokenLength: token?.length,
+    stateToken: !!stateToken,
+    localStorageToken: !!localToken,
+    usingToken: stateToken ? 'state' : localToken ? 'localStorage' : 'none',
+    tokenValue: token ? `${token.substring(0, 10)}...${token.substring(token.length - 10)}` : 'null'
+  });
+  
+  // If we have a localStorage token but no state token, sync them
+  if (localToken && !stateToken && !state.isLoading) {
+    console.log('Syncing localStorage token to state')
+    useAuthStore.setState({ token: localToken })
+  }
+  
+  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+  
+  console.log('getAuthHeaders() returning:', {
+    hasAuthHeader: !!(headers as any).Authorization,
+    headerKeys: Object.keys(headers),
+    authHeaderLength: (headers as any).Authorization?.length,
+    fullHeaders: headers
+  });
+  
+  return headers
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -187,17 +214,37 @@ export const useAuthStore = create<AuthState>()(
       },
 
       initializeAuth: async () => {
-        // Check both zustand state and localStorage
-        const stateToken = get().token;
-        const localToken = localStorage.getItem('accessToken');
-        const token = stateToken || localToken;
+        console.log('Initializing auth...')
+        
+        // First check if we already have state from persistence
+        const currentState = get()
+        console.log('Current auth state:', { 
+          hasUser: !!currentState.user, 
+          hasToken: !!currentState.token,
+          isInitialized: currentState.isInitialized 
+        })
+        
+        // Also check localStorage directly
+        const localToken = localStorage.getItem('accessToken')
+        console.log('localStorage token check:', { hasLocalToken: !!localToken })
+        
+        // Use token from state first, then localStorage
+        const token = currentState.token || localToken
         
         if (!token) {
+          console.log('No token found, setting initialized to true')
           set({ isInitialized: true })
           return
         }
+        
+        // If we have a localStorage token but no state token, restore it
+        if (localToken && !currentState.token) {
+          console.log('Restoring token from localStorage to state')
+          set({ token: localToken })
+        }
 
         try {
+          console.log('Validating token with backend...')
           // Validate token with backend
           const response = await fetch('/api/auth/me', {
             headers: {
@@ -207,12 +254,19 @@ export const useAuthStore = create<AuthState>()(
           
           if (response.ok) {
             const data = await response.json()
+            console.log('Token valid, setting user data')
             set({ 
               user: data.user || data,
               token: token,
               isInitialized: true 
             })
+            
+            // Ensure localStorage is in sync
+            if (!localStorage.getItem('accessToken')) {
+              localStorage.setItem('accessToken', token)
+            }
           } else {
+            console.log('Token invalid, logging out')
             // Token is invalid
             get().logout()
             set({ isInitialized: true })
@@ -236,6 +290,25 @@ export const useAuthStore = create<AuthState>()(
         user: state.user, 
         token: state.token 
       }),
+      version: 1,
+      onRehydrateStorage: () => {
+        console.log('Starting auth store rehydration...')
+        return (state, error) => {
+          if (error) {
+            console.error('Error during auth store rehydration:', error)
+          } else {
+            console.log('Auth store rehydrated:', {
+              hasUser: !!state?.user,
+              hasToken: !!state?.token
+            })
+            // After rehydration, check if we need to initialize
+            if (state && !state.isInitialized) {
+              console.log('Triggering auth initialization after rehydration')
+              setTimeout(() => state.initializeAuth(), 100)
+            }
+          }
+        }
+      }
     }
   )
 )

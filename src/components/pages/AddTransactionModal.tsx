@@ -177,7 +177,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ onAdd,
   };
 
   const isTradeType = formData.type === 'trade';
-  const selectedType = transactionTypes.find(t => t.value === formData.type);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

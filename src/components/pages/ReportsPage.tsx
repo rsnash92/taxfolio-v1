@@ -141,7 +141,7 @@ const generatePDFReport = (taxData: any, assetSummary: any[], selectedTaxYear: s
   URL.revokeObjectURL(url);
 };
 
-const generateCSVReport = (taxData: any, assetSummary: any[], selectedTaxYear: string, formatCurrency: (amount: number) => string) => {
+const generateCSVReport = (taxData: any, assetSummary: any[], selectedTaxYear: string) => {
   // Tax Summary CSV
   const taxSummaryCSV = [
     ['Crypto Tax Report Summary', selectedTaxYear],
@@ -203,7 +203,7 @@ export function ReportsPage() {
     subscriptionExpiry: new Date('2024-12-31')
   });
 
-  const { taxSummary, formatCurrency, formatPercentage, availableTaxYears } = useTaxCalculations(allTransactions, {
+  const { taxSummary, formatCurrency } = useTaxCalculations(allTransactions, {
     taxYear: selectedTaxYear,
     annualIncome: 35000
   });
@@ -346,7 +346,7 @@ export function ReportsPage() {
     try {
       // Add a small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 300));
-      generateCSVReport(taxData, assetSummary, selectedTaxYear, formatCurrency);
+      generateCSVReport(taxData, assetSummary, selectedTaxYear);
     } catch (error) {
       console.error('Error generating CSV:', error);
       alert('Error generating CSV report. Please try again.');
@@ -364,12 +364,6 @@ export function ReportsPage() {
     handleDownloadPDF();
   };
 
-  const handleSelectPlan = () => {
-    if (!isPremium) {
-      setShowPricingModal(true);
-      return;
-    }
-  };
 
   const handleDownloadSelfReporting = async () => {
     if (!isPremium) {

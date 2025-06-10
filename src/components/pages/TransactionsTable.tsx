@@ -1,6 +1,6 @@
 import React from 'react';
-import { Search, Calendar, Filter, Eye, Plus, Upload, ChevronLeft, ChevronRight, Copy, ExternalLink, Trash2, Edit3, MoreHorizontal, ArrowUpDown, ChevronDown } from 'lucide-react';
-import { useTransactions, useTransactionImport, useAddTransaction } from '../../hooks/useTransactions';
+import { Search, Calendar, Filter, Eye, Plus, Upload, ChevronLeft, ChevronRight, Copy, ExternalLink, Trash2, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { useTransactions, useTransactionImport } from '../../hooks/useTransactions';
 import { TransactionImport } from './TransactionImport';
 import { AddTransactionModal } from './AddTransactionModal';
 import { CoinIcon } from '../common/CoinIcon';
@@ -21,7 +21,6 @@ export const TransactionsTable: React.FC = () => {
     setItemsPerPage,
     totalPages,
     totalTransactions,
-    uniqueAssets,
     addImportedTransactions,
     addTransaction,
     deleteTransaction
@@ -38,7 +37,7 @@ export const TransactionsTable: React.FC = () => {
   const closeAddModal = () => setIsAddModalOpen(false);
 
   // Preload coin icons for all transactions
-  const { loading: iconsLoading } = useTransactionIcons(transactions);
+  useTransactionIcons(transactions);
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
@@ -229,7 +228,7 @@ export const TransactionsTable: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {transactions.map((tx, index) => {
+              {transactions.map((tx) => {
                 const { date, time } = formatDate(tx.date);
                 const txId = `0x${String(tx.id).slice(-3)}`;
                 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAssetPrices } from './usePrices';
-import { useAuthStore } from '../store/authStore';
 
 const API_URL = 'https://app.taxfolio.io/api';
 
@@ -57,7 +56,6 @@ const getAuthHeaders = (): HeadersInit => {
 };
 
 export const useTransactions = () => {
-  const { user } = useAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,9 +129,9 @@ export const useTransactions = () => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(tx => 
-        tx.asset.toLowerCase().includes(searchLower) ||
-        tx.exchange.toLowerCase().includes(searchLower) ||
-        tx.category.toLowerCase().includes(searchLower) ||
+        tx.asset?.toLowerCase().includes(searchLower) ||
+        tx.exchange?.toLowerCase().includes(searchLower) ||
+        tx.category?.toLowerCase().includes(searchLower) ||
         tx.txHash?.toLowerCase().includes(searchLower) ||
         tx.notes?.toLowerCase().includes(searchLower)
       );
@@ -181,8 +179,8 @@ export const useTransactions = () => {
 
       // Handle different data types
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+        aValue = aValue?.toLowerCase() || '';
+        bValue = bValue?.toLowerCase() || '';
       }
 
       if (aValue === undefined) aValue = '';

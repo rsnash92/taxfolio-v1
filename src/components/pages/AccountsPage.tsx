@@ -85,7 +85,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🦊',
     apiRequired: false,
     description: 'Connect your MetaMask wallet',
-    fields: [] as string[]
+    fields: ['address'] as string[]
   },
   walletconnect: {
     name: 'WalletConnect',
@@ -93,7 +93,7 @@ const SUPPORTED_CONNECTIONS = {
     icon: '🔗',
     apiRequired: false,
     description: 'Connect any WalletConnect compatible wallet',
-    fields: [] as string[]
+    fields: ['address'] as string[]
   },
   
   // Blockchain networks
@@ -133,6 +133,45 @@ const SUPPORTED_CONNECTIONS = {
 
 type SupportedConnectionType = keyof typeof SUPPORTED_CONNECTIONS;
 
+// Wallet address validation function
+const validateWalletAddress = (address: string, blockchain: string): { isValid: boolean; error?: string } => {
+  if (!address || !address.trim()) {
+    return { isValid: false, error: 'Address cannot be empty' };
+  }
+  
+  const trimmedAddress = address.trim();
+  
+  switch (blockchain?.toLowerCase() || '') {
+    case 'ethereum':
+    case 'base':
+    case 'arbitrum':
+    case 'polygon':
+    case 'optimism':
+    case 'avalanche':
+    case 'bsc':
+      // Ethereum-based addresses should start with 0x and be 42 characters long
+      if (!/^0x[a-fA-F0-9]{40}$/.test(trimmedAddress)) {
+        return { isValid: false, error: 'Invalid Ethereum address format. Should start with 0x and be 42 characters long.' };
+      }
+      break;
+    case 'bitcoin':
+      // Bitcoin addresses - simplified validation (legacy, segwit, bech32)
+      if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(trimmedAddress) && 
+          !/^bc1[a-z0-9]{39,59}$/.test(trimmedAddress) &&
+          !/^[2][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(trimmedAddress)) {
+        return { isValid: false, error: 'Invalid Bitcoin address format.' };
+      }
+      break;
+    default:
+      // For other blockchains, just check it's not empty and has reasonable length
+      if (trimmedAddress.length < 10 || trimmedAddress.length > 100) {
+        return { isValid: false, error: 'Address length should be between 10 and 100 characters.' };
+      }
+  }
+  
+  return { isValid: true };
+};
+
 export function AccountsPage() {
   const {
     exchangeConnections,
@@ -140,6 +179,7 @@ export function AccountsPage() {
     isLoading,
     isConnecting,
     isSyncing,
+    hasInitialLoad,
     error,
     connectionErrors,
     fetchConnections,
@@ -152,6 +192,7 @@ export function AccountsPage() {
     clearError,
     // clearConnectionError
   } = useConnectionsStore();
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'totalTransactions' | 'name' | 'lastSync'>('totalTransactions');
@@ -168,6 +209,7 @@ export function AccountsPage() {
     network: 'mainnet'
   });
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Load connections on mount
   useEffect(() => {
@@ -184,47 +226,48 @@ export function AccountsPage() {
 
   // Combine and transform connections into unified format
   const accounts: UnifiedConnection[] = [
-    ...exchangeConnections.map(conn => ({
-      id: conn.id,
-      name: conn.connection_name || conn.exchange_name,
+    ...(Array.isArray(exchangeConnections) ? exchangeConnections : []).map(conn => ({
+      id: conn.id || '',
+      name: conn.connection_name || conn.exchange_name || 'Unknown Exchange',
       type: 'Exchange' as const,
-      status: conn.status,
+      status: conn.status || 'inactive',
       lastSync: conn.last_sync_at,
       lastSuccessfulSync: conn.last_successful_sync_at,
-      totalTransactions: conn.total_transactions_synced,
+      totalTransactions: conn.total_transactions_synced || 0,
       exchangeName: conn.exchange_name,
       icon: getExchangeIcon(conn.exchange_name),
-      autoSyncEnabled: conn.auto_sync_enabled,
-      syncFrequencyHours: conn.sync_frequency_hours,
+      autoSyncEnabled: conn.auto_sync_enabled || false,
+      syncFrequencyHours: conn.sync_frequency_hours || 24,
       lastSyncError: conn.last_sync_error,
-      consecutiveFailures: conn.consecutive_sync_failures,
+      consecutiveFailures: conn.consecutive_sync_failures || 0,
       tokenCount: 0,
       nftCount: 0
     })),
-    ...walletConnections.map(conn => ({
-      id: conn.id,
-      name: conn.wallet_name || `${conn.blockchain} Wallet`,
-      type: conn.connection_type === 'address' ? 'Blockchain' as const : 'Wallet' as const,
-      status: conn.status,
-      lastSync: conn.last_sync_at,
-      lastSuccessfulSync: conn.last_successful_sync_at,
-      totalTransactions: conn.total_transactions_synced,
-      isVerified: conn.is_verified,
-      blockchain: conn.blockchain,
-      address: conn.address,
-      nativeBalance: conn.native_balance,
-      tokenCount: conn.token_count ?? 0,
-      nftCount: conn.nft_count ?? 0,
-      icon: getBlockchainIcon(conn.blockchain),
-      autoSyncEnabled: conn.auto_sync_enabled,
-      syncFrequencyHours: conn.sync_frequency_hours,
-      lastSyncError: conn.last_sync_error,
-      consecutiveFailures: conn.consecutive_sync_failures
+    ...(Array.isArray(walletConnections) ? walletConnections : []).map(conn => ({
+        id: conn.id || '',
+        name: conn.wallet_name || `${conn.blockchain || 'Unknown'} Wallet`,
+        type: conn.connection_type === 'address' ? 'Blockchain' as const : 'Wallet' as const,
+        status: conn.status || 'inactive',
+        lastSync: conn.last_sync_at,
+        lastSuccessfulSync: conn.last_successful_sync_at,
+        totalTransactions: conn.total_transactions_synced || 0,
+        isVerified: conn.is_verified || false,
+        blockchain: conn.blockchain,
+        address: conn.address,
+        nativeBalance: conn.native_balance,
+        tokenCount: conn.token_count ?? 0,
+        nftCount: conn.nft_count ?? 0,
+        icon: getBlockchainIcon(conn.blockchain),
+        autoSyncEnabled: conn.auto_sync_enabled || false,
+        syncFrequencyHours: conn.sync_frequency_hours || 24,
+        lastSyncError: conn.last_sync_error,
+        consecutiveFailures: conn.consecutive_sync_failures || 0
     }))
   ];
 
+
   function getExchangeIcon(exchangeName: string): string {
-    const name = exchangeName.toLowerCase();
+    const name = exchangeName?.toLowerCase() || '';
     if (name.includes('coinbase')) return '🟦';
     if (name.includes('binance')) return '🟨';
     if (name.includes('kraken')) return '🟣';
@@ -235,7 +278,7 @@ export function AccountsPage() {
   }
 
   function getBlockchainIcon(blockchain: string): string {
-    const name = blockchain.toLowerCase();
+    const name = blockchain?.toLowerCase() || '';
     if (name === 'ethereum') return '⟡';
     if (name === 'bitcoin') return '₿';
     if (name === 'base') return '🔵';
@@ -248,29 +291,32 @@ export function AccountsPage() {
   }
 
   // Get recommended accounts
+  const safeExchangeConnections = Array.isArray(exchangeConnections) ? exchangeConnections : [];
+  const safeWalletConnections = Array.isArray(walletConnections) ? walletConnections : [];
+  
   const recommendedAccounts: RecommendedAccount[] = [
-    ...(!exchangeConnections.some(conn => conn.exchange_name === 'coinbase') ? [{
+    ...(!safeExchangeConnections.some(conn => conn.exchange_name === 'coinbase') ? [{
       id: 'coinbase',
       name: 'Coinbase',
       icon: '🟦',
       type: 'Exchange' as const,
       description: 'Popular US exchange with easy fiat onramp'
     }] : []),
-    ...(!exchangeConnections.some(conn => conn.exchange_name === 'binance') ? [{
+    ...(!safeExchangeConnections.some(conn => conn.exchange_name === 'binance') ? [{
       id: 'binance',
       name: 'Binance',
       icon: '🟨',
       type: 'Exchange' as const,
       description: 'World\'s largest crypto exchange'
     }] : []),
-    ...(!walletConnections.some(conn => conn.blockchain === 'ethereum') ? [{
+    ...(!safeWalletConnections.some(conn => conn.blockchain === 'ethereum') ? [{
       id: 'ethereum',
       name: 'Ethereum',
       icon: '⟡',
       type: 'Blockchain' as const,
       description: 'Add Ethereum wallet address'
     }] : []),
-    ...(!walletConnections.some(conn => conn.blockchain === 'bitcoin') ? [{
+    ...(!safeWalletConnections.some(conn => conn.blockchain === 'bitcoin') ? [{
       id: 'bitcoin',
       name: 'Bitcoin',
       icon: '₿',
@@ -363,6 +409,14 @@ export function AccountsPage() {
     
     try {
       if (config.type === 'Exchange') {
+        console.log('Connecting exchange with data:', {
+          exchangeName: selectedAccountType,
+          connectionName: connectionForm.name || `My ${config.name} Account`,
+          apiKey: connectionForm.apiKey ? '***' : 'empty',
+          apiSecret: connectionForm.apiSecret ? '***' : 'empty',
+          apiPassphrase: connectionForm.apiPassphrase ? '***' : 'empty'
+        });
+        
         success = await connectExchange(
           selectedAccountType,
           connectionForm.name || `My ${config.name} Account`,
@@ -371,9 +425,28 @@ export function AccountsPage() {
           connectionForm.apiPassphrase || undefined
         );
       } else {
+        // Validate wallet address format
+        if (!connectionForm.address.trim()) {
+          throw new Error('Wallet address is required');
+        }
+        
+        // Basic address validation
+        const addressValidation = validateWalletAddress(connectionForm.address, connectionForm.blockchain);
+        if (!addressValidation.isValid) {
+          throw new Error(addressValidation.error);
+        }
+        
+        console.log('Connecting wallet with data:', {
+          walletName: connectionForm.name || `My ${config.name} Wallet`,
+          connectionType: config.type === 'Blockchain' ? 'address' : selectedAccountType,
+          blockchain: connectionForm.blockchain,
+          address: connectionForm.address,
+          network: connectionForm.network
+        });
+        
         success = await connectWallet(
           connectionForm.name || `My ${config.name} Wallet`,
-          selectedAccountType,
+          config.type === 'Blockchain' ? 'address' : selectedAccountType,
           connectionForm.blockchain,
           connectionForm.address,
           connectionForm.network
@@ -396,6 +469,7 @@ export function AccountsPage() {
       }
     } catch (error) {
       console.error('Connection error:', error);
+      // The error handling is done by the store, but we can add UI feedback here if needed
     }
   };
   
@@ -469,6 +543,8 @@ export function AccountsPage() {
       <ChevronDown className="w-4 h-4 inline ml-1" />;
   };
 
+
+
   return (
     <div className="min-h-screen bg-black text-white p-6">
       {/* Header */}
@@ -516,7 +592,7 @@ export function AccountsPage() {
       )}
 
       {/* Loading State */}
-      {isLoading ? (
+      {isLoading || !hasInitialLoad ? (
         <div className="bg-[#111111] rounded-lg border border-gray-800 p-12 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#15e49e]" />
           <p className="text-gray-400">Loading connections...</p>
@@ -717,7 +793,7 @@ export function AccountsPage() {
       )}
 
       {/* Recommended Accounts Section */}
-      {!isLoading && recommendedAccounts.length > 0 && (
+      {hasInitialLoad && !isLoading && recommendedAccounts.length > 0 && (
         <div className="mt-8">
           <div className="bg-[#111111] border border-gray-800 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -926,16 +1002,40 @@ export function AccountsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-400 mb-2">
-                          Wallet Address
+                          Wallet Address *
                         </label>
                         <input
                           type="text"
                           required
                           value={connectionForm.address}
-                          onChange={(e) => setConnectionForm({ ...connectionForm, address: e.target.value })}
-                          className="w-full bg-black border border-gray-700 rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none focus:border-[#15e49e] transition-colors"
-                          placeholder={connectionForm.blockchain === 'bitcoin' ? '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa' : '0x...'}
+                          onChange={(e) => {
+                            const newAddress = e.target.value;
+                            setConnectionForm({ ...connectionForm, address: newAddress });
+                            
+                            // Clear previous error when user starts typing
+                            if (formErrors.address) {
+                              setFormErrors({ ...formErrors, address: '' });
+                            }
+                            
+                            // Real-time validation for immediate feedback
+                            if (newAddress.trim()) {
+                              const validation = validateWalletAddress(newAddress, connectionForm.blockchain);
+                              if (!validation.isValid) {
+                                setFormErrors({ ...formErrors, address: validation.error || 'Invalid address' });
+                              }
+                            }
+                          }}
+                          className={`w-full bg-black border rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none transition-colors ${
+                            formErrors.address ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-[#15e49e]'
+                          }`}
+                          placeholder={connectionForm.blockchain === 'bitcoin' ? '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa' : '0x1234567890123456789012345678901234567890'}
                         />
+                        {formErrors.address && (
+                          <p className="mt-1 text-sm text-red-400">{formErrors.address}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">
+                          Enter your {connectionForm.blockchain} wallet address
+                        </p>
                       </div>
                     </>
                   )}
@@ -987,15 +1087,15 @@ export function AccountsPage() {
       )}
 
       {/* Stats Footer */}
-      {!isLoading && (
+      {hasInitialLoad && !isLoading && (
         <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
           <div>
             Showing {filteredAccounts.length} of {accounts.length} connections
           </div>
           <div className="flex items-center gap-6">
-            <span>Exchanges: <span className="text-white font-medium">{exchangeConnections.length}</span></span>
+            <span>Exchanges: <span className="text-white font-medium">{safeExchangeConnections.length}</span></span>
             <span>•</span>
-            <span>Wallets: <span className="text-white font-medium">{walletConnections.length}</span></span>
+            <span>Wallets: <span className="text-white font-medium">{safeWalletConnections.length}</span></span>
             <span>•</span>
             <span>Total Transactions: <span className="text-[#15e49e] font-medium">{accounts.reduce((sum, acc) => sum + acc.totalTransactions, 0)}</span></span>
           </div>

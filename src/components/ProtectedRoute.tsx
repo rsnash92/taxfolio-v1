@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore'; // Adjust path based on your structure
-import { useEffect } from 'react';
 
 export function ProtectedRoute() {
   const { user } = useAuthStore();

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTransactions } from '../../hooks/useTransactions';
 import { TransactionForm } from './TransactionForm';
 import { format } from 'date-fns';
@@ -16,8 +16,7 @@ export function TransactionManager() {
     setSortBy,
     sortOrder,
     setSortOrder,
-    uniqueAssets,
-    error
+    uniqueAssets
   } = useTransactions();
   
   const [showAddForm, setShowAddForm] = useState(false);
